@@ -1,29 +1,25 @@
-import _ from 'lodash'
-import React, {PanResponder, Dimensions, AppRegistry, StyleSheet, Animated, View} from 'react-native'
-import ReactNativeART, {Surface, Shape, Path, Group, Transform} from 'ReactNativeART'
-var {width, height} = Dimensions.get('window');
+import React, {AppRegistry, PanResponder, Dimensions, StyleSheet, View} from 'react-native'
+import {Surface, Shape, Path} from 'ReactNativeART'
 
-var AnimatedShape = Animated.createAnimatedComponent(Shape);
-var AnimatedGroup = Animated.createAnimatedComponent(Group);
-
-var styles = StyleSheet.create({
+const styles = StyleSheet.create({
   container: {
     flex: 1,
     flexDirection: 'column'
   }
-});
+})
 
+const {width, height} = Dimensions.get('window')
 
-var latestPoint = {x: undefined, y: undefined}
-var isPressing = false
-var pollTime = 0
-var pollId
+let lastPoint = {x: undefined, y: undefined}
+let isPressing = false
+let pollTime = 0
+let pollId
 
 var FireworkShooter = React.createClass({
   getInitialState: function() {
     return {
       points: [[]]
-    };
+    }
   },
   componentWillMount: function () {
     this.panResponder = PanResponder.create({
@@ -37,7 +33,7 @@ var FireworkShooter = React.createClass({
   },
   grant: function(e, {x0, y0}) {
     isPressing = true
-    latestPoint = {x: x0, y: y0}
+    lastPoint = {x: x0, y: y0}
     pollTime = 0
     this.setState(state => ({
       points: state.points.concat([[]])
@@ -48,7 +44,7 @@ var FireworkShooter = React.createClass({
     pollId = setTimeout(() => {
       this.setState(state => {
         var lineToUpdate = state.points.pop()
-        var newLine = lineToUpdate.concat({x: latestPoint.x, y: latestPoint.y})
+        var newLine = lineToUpdate.concat({x: lastPoint.x, y: lastPoint.y})
 
         if (pollTime % (8 * 2) === 0) {
           newLine.shift()
@@ -65,7 +61,7 @@ var FireworkShooter = React.createClass({
     }, 8)
   },
   move: function ({nativeEvent}) {
-    latestPoint = {x: nativeEvent.pageX, y: nativeEvent.pageY}
+    lastPoint = {x: nativeEvent.pageX, y: nativeEvent.pageY}
   },
   release: function() {
     isPressing = false
@@ -77,8 +73,8 @@ var FireworkShooter = React.createClass({
     return threshold < 0.09 ? 0 : 1
   },
   render: function() {
-    var lastLine = this.state.points[this.state.points.length - 1]
-    var smoothLine = getSmoothLine(lastLine)
+    const lastLine = this.state.points[this.state.points.length - 1]
+    const smoothLine = getSmoothLine(lastLine)
 
     return (
       <View style={styles.container} {...this.panResponder.panHandlers}>
@@ -98,9 +94,9 @@ var FireworkShooter = React.createClass({
           }
         </Surface>
       </View>
-    );
+    )
   }
-});
+})
 
 var getMidPoint = (p1, p2) => ({
   x: (p1.x + p2.x) * 0.5,
@@ -125,4 +121,4 @@ var getSmoothLine = line => line.reduce((acc, cV, i, line) => {
 var getLineSegmentPath = ({previousPoint1, mid1, mid2}) =>
   Path().moveTo(mid1.x, mid1.y).curveTo(previousPoint1.x, previousPoint1.y, mid2.x, mid2.y)
 
-AppRegistry.registerComponent('native_canvas', () => FireworkShooter);
+AppRegistry.registerComponent('native_canvas', () => FireworkShooter)
