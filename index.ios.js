@@ -1,3 +1,4 @@
+import _ from 'lodash'
 import React, {PanResponder, Dimensions, AppRegistry, StyleSheet, Animated, View} from 'react-native'
 import ReactNativeART, {Surface, Shape, Path, Group, Transform} from 'ReactNativeART'
 var {width, height} = Dimensions.get('window');
@@ -31,7 +32,7 @@ var FireworkShooter = React.createClass({
       onPanResponderGrant: this.grant,
       onPanResponderMove: this.move,
       onPanResponderRelease: this.release,
-      // onPanResponderTerminate: this._handlePanResponderEnd
+      onPanResponderTerminate: this.release
     })
   },
   grant: function(e, {x0, y0}) {
@@ -87,36 +88,66 @@ var FireworkShooter = React.createClass({
   //
   //     this.setState(this.state);
   // },
+  getAlpha: function (i, numberOfPoints) {
+    const alpha =  (numberOfPoints / (numberOfPoints * (numberOfPoints - i)))
+
+    return alpha < 0.1 ? 0 : alpha
+  },
   render: function() {
+    var line = this.state.points[this.state.points.length - 1]
+    var smoothLine = line.reduce((acc, cV, i, line) => {
+      const previousPoint2 = line[i]
+      const previousPoint1 = line[i + 1]
+      const currentPoint = line[i + 2]
+
+      if (!currentPoint) {
+        return acc
+      }
+
+      const mid1 = getMidPoint(previousPoint1, previousPoint2)
+      const mid2 = getMidPoint(currentPoint, previousPoint1)
+
+      return acc.concat({
+        previousPoint1,
+        mid1,
+        mid2
+      })
+    }, [])
+
     return (
       <View style={styles.container} {...this.panResponder.panHandlers}>
-          <Surface width={width} height={height}>
-            {this.state.points.map((line, i) => <AnimatedCircle key={i} points={line} stroke="#000" />)}
-          </Surface>
+        <Surface width={width} height={height}>
+          {
+            line.map((lastLine, i, array) =>
+              <AnimatedCircle
+                key={i}
+                i={i}
+                line={array}
+                strokeCap="butt"
+                strokeJoin="miter"
+                opacity={this.getAlpha(i, array.length)}
+                stroke="#000"
+                strokeWidth={4}
+              />)
+          }
+        </Surface>
       </View>
     );
   }
 });
 
+var getMidPoint = (p1, p2) => {
+    return {
+      x: (p1.x + p2.x) * 0.5,
+      y: (p1.y + p2.y) * 0.5
+    }
+}
+
 var AnimatedCircle = React.createClass({
   render: function() {
-    var radius = 5;
-    var lastLine = this.props.points
-    // var lastLine = this.props.points[this.props.points.length - 1]
-    var firstPoint = lastLine[0] || {x: 0, y: 0}
-    // var lastPoint = lastLine[lastLine.length - 1] || {x: 0, y: 0}
-    // console.log(this.props.points.length)
-    // console.log(JSON.stringify(this.props.points))
-    // console.log(`firstPoint {:x ${firstPoint.x} :y ${firstPoint.y}`)
-    // console.log(`lastPoint {:x ${lastPoint.x} :y ${lastPoint.y}}`)
-    var path = Path().moveTo(firstPoint.x, firstPoint.y)
-    // console.log('lines', this.props.points.length)
-
-
-    lastLine.forEach(point=>{
-      path.lineTo(point.x, point.y)
-    })
-    // path.stroke('#f000')
+    var firstPoint = this.props.line[this.props.i] || {x: 0, y: 0}
+    var lineToPoint = this.props.line[this.props.i + 1] || this.props.line[this.props.i] || {x: 0, y: 0}
+    var path = Path().moveTo(firstPoint.x, firstPoint.y).lineTo(lineToPoint.x, lineToPoint.y)
 
     return React.createElement(AnimatedShape, React.__spread({},  this.props, {d: path}));
   }
