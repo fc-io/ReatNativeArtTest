@@ -72,26 +72,10 @@ var FireworkShooter = React.createClass({
     isPressing = false
     clearTimeout(pollId)
   },
-
-  // _handleAddFirework: function(e) {
-  //     var _shootingPosition = new Animated.ValueXY({x: width/2, y: height - MORTAR_RADIUS});
-  //     this.state.fireworks.push({
-  //       shootingPosition: _shootingPosition,
-  //     });
-  //     Animated.timing(_shootingPosition, {
-  //         duration: 300,
-  //         toValue: {
-  //           y: e.nativeEvent.locationY,
-  //           x: e.nativeEvent.locationX
-  //         }
-  //     }).start()
-  //
-  //     this.setState(this.state);
-  // },
   getAlpha: function (i, numberOfPoints) {
-    const alpha =  (numberOfPoints / (numberOfPoints * (numberOfPoints - i)))
+    const threshold =  (numberOfPoints / (numberOfPoints * (numberOfPoints - i)))
 
-    return alpha < 0.1 ? 0 : alpha
+    return threshold < 0.09 ? 0 : 1
   },
   render: function() {
     var line = this.state.points[this.state.points.length - 1]
@@ -118,12 +102,11 @@ var FireworkShooter = React.createClass({
       <View style={styles.container} {...this.panResponder.panHandlers}>
         <Surface width={width} height={height}>
           {
-            line.map((lastLine, i, array) =>
+            smoothLine.map((points, i, array) =>
               <AnimatedCircle
                 key={i}
-                i={i}
-                line={array}
-                strokeCap="butt"
+                points={points}
+                strokeCap="round"
                 strokeJoin="miter"
                 opacity={this.getAlpha(i, array.length)}
                 stroke="#000"
@@ -145,9 +128,8 @@ var getMidPoint = (p1, p2) => {
 
 var AnimatedCircle = React.createClass({
   render: function() {
-    var firstPoint = this.props.line[this.props.i] || {x: 0, y: 0}
-    var lineToPoint = this.props.line[this.props.i + 1] || this.props.line[this.props.i] || {x: 0, y: 0}
-    var path = Path().moveTo(firstPoint.x, firstPoint.y).lineTo(lineToPoint.x, lineToPoint.y)
+    const {previousPoint1, mid1, mid2} = this.props.points
+    const path = Path().moveTo(mid1.x, mid1.y).curveTo(previousPoint1.x, previousPoint1.y, mid2.x, mid2.y)
 
     return React.createElement(AnimatedShape, React.__spread({},  this.props, {d: path}));
   }
