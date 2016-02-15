@@ -1,5 +1,6 @@
 import React, {AppRegistry, PanResponder, Dimensions, StyleSheet, View} from 'react-native'
 import {Surface, Group, Shape, Path} from 'ReactNativeART'
+import TimerMixin from 'react-timer-mixin'
 
 const styles = StyleSheet.create({
   container: {
@@ -11,19 +12,10 @@ const styles = StyleSheet.create({
 const {width, height} = Dimensions.get('window')
 
 let lastPoint = {x: undefined, y: undefined, timestamp: undefined}
-let pollId
 
-const setLastPoint = ({pageX, pageY, timestamp}, dateTime) => {
-  console.log('setLastPoint', timestamp)
-  lastPoint = {x: pageX, y: pageY, timestamp, dateTime: dateTime}
-}
-
-const getAlpha = (i, points, dateNow) => {
-  const numberOfPoints = points.length
-  const firstDateTime = points[0].previousPoint1.dateTime
-  const firstTimestamp = points[0].previousPoint1.timestamp
-  const currentTimestamp = points[i].previousPoint1.timestamp
-  const timeThreshold =  dateNow - firstDateTime > 300 + currentTimestamp - firstTimestamp
+const getAlpha = (i, points, time) => {
+  const pointTime = points[i].previousPoint1.time
+  const timeThreshold =  time > pointTime + 160
   return timeThreshold ? 0 : 1
 }
 
@@ -51,11 +43,44 @@ const getLineSegmentPath = ({previousPoint1, mid1, mid2}) => (
   Path().moveTo(mid1.x, mid1.y).curveTo(previousPoint1.x, previousPoint1.y, mid2.x, mid2.y)
 )
 
+let isPressing = false
+let isTracking = false
+let points = []
+
+const setLatestPoint = ({pageX, pageY, timestamp}) => {
+  lastPoint = {x: pageX, y: pageY, timestamp}
+}
+
+const setNewPoint = function (time) {
+  var lineToUpdate = points.pop()
+  var newLine = lineToUpdate.concat({
+    x: lastPoint.x,
+    y: lastPoint.y,
+    time
+  })
+  points = points.concat([newLine])
+}
+
 const Snake = React.createClass({
-  getInitialState: function() {
-    return {
-      points: [[]]
-    }
+  mixins: [TimerMixin],
+  tick: function () {
+    this.requestAnimationFrame((time) => {
+      if (isPressing && !isTracking) {
+        points = points.concat([[]])
+        isTracking = true
+      }
+
+      if (isTracking) {
+        setNewPoint(time)
+      }
+
+      if (!isPressing && isTracking) {
+        isTracking = false
+      }
+
+      this.setState({time})
+      this.tick()
+    })
   },
   componentWillMount: function () {
     this.panResponder = PanResponder.create({
@@ -66,43 +91,22 @@ const Snake = React.createClass({
       onPanResponderRelease: this.release,
       onPanResponderTerminate: this.release
     })
+    this.tick()
   },
   grant: function({nativeEvent}) {
-    this.setState(state => ({points: state.points.concat([[]])}))
-    setLastPoint(nativeEvent, Date.now())
-    this.setNewPoint()
-    this.poll()
-  },
-  poll: function() {
-    pollId = setTimeout(() => {
-      this.setNewPoint()
-      this.poll()
-    }, 16)
-  },
-  setNewPoint: function () {
-    this.setState(state => {
-      var lineToUpdate = state.points.pop()
-      var newLine = lineToUpdate.concat({
-        x: lastPoint.x,
-        y: lastPoint.y,
-        timestamp: lastPoint.timestamp,
-        dateTime: lastPoint.dateTime
-      })
-      var points = state.points.concat([newLine])
-      return {points}
-    })
+    isPressing = true
+    setLatestPoint(nativeEvent)
   },
   move: function ({nativeEvent}) {
-    setLastPoint(nativeEvent, Date.now())
+    setLatestPoint(nativeEvent)
   },
   release: function ({nativeEvent}) {
-    clearTimeout(pollId)
-    setLastPoint(nativeEvent, Date.now())
-    this.setNewPoint()
+    setLatestPoint(nativeEvent)
+    isPressing = false
   },
   render: function() {
-    const smoothLines = this.state.points.map(line => getSmoothLine(line))
-    const dateNow = Date.now()
+    const smoothLines = points.map(line => getSmoothLine(line))
+    const time = this.state && this.state.time
 
     return (
       <View style={styles.container} {...this.panResponder.panHandlers}>
@@ -116,7 +120,7 @@ const Snake = React.createClass({
                       <Shape
                         key={lineIndex + ':' + i}
                         d={getLineSegmentPath(points)}
-                        opacity={getAlpha(i, array, dateNow)}
+                        opacity={getAlpha(i, array, time)}
                         stroke="#000"
                         strokeWidth={4}
                       />
