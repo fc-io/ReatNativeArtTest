@@ -10,19 +10,23 @@ const styles = StyleSheet.create({
 })
 
 const {width, height} = Dimensions.get('window')
+let lastPoint = {x: undefined, y: undefined, time: undefined}
+let isPressing = false
+let isTracking = false
+let points = []
 
-let lastPoint = {x: undefined, y: undefined, timestamp: undefined}
-
-const getAlpha = (i, points, time) => {
-  const pointTime = points[i].previousPoint1.time
-  const timeThreshold =  time > pointTime + 160
-  return timeThreshold ? 0 : 1
+const setLatestPoint = ({pageX, pageY, timestamp}) => (lastPoint = {x: pageX, y: pageY, timestamp})
+const setNewPoint = function (time) {
+  var lineToUpdate = points.pop()
+  var newLine = lineToUpdate.concat({
+    x: lastPoint.x,
+    y: lastPoint.y,
+    time
+  })
+  points = points.concat([newLine])
 }
 
-const getMidPoint = (p1, p2) => (
-  {x: (p1.x + p2.x) * 0.5, y: (p1.y + p2.y) * 0.5}
-)
-
+const getMidPoint = (p1, p2) => ({x: (p1.x + p2.x) * 0.5, y: (p1.y + p2.y) * 0.5})
 const getSmoothLine = line => (
   line.reduce((acc, cV, i, line) => {
     const previousPoint2 = line[i]
@@ -43,23 +47,7 @@ const getLineSegmentPath = ({previousPoint1, mid1, mid2}) => (
   Path().moveTo(mid1.x, mid1.y).curveTo(previousPoint1.x, previousPoint1.y, mid2.x, mid2.y)
 )
 
-let isPressing = false
-let isTracking = false
-let points = []
-
-const setLatestPoint = ({pageX, pageY, timestamp}) => {
-  lastPoint = {x: pageX, y: pageY, timestamp}
-}
-
-const setNewPoint = function (time) {
-  var lineToUpdate = points.pop()
-  var newLine = lineToUpdate.concat({
-    x: lastPoint.x,
-    y: lastPoint.y,
-    time
-  })
-  points = points.concat([newLine])
-}
+const getAlpha = (i, points, time) => (time > points[i].previousPoint1.time + 160 ? 0 : 1)
 
 const Snake = React.createClass({
   mixins: [TimerMixin],
