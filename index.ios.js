@@ -1,5 +1,5 @@
 import React, {AppRegistry, PanResponder, Dimensions, StyleSheet, View} from 'react-native'
-import {Surface, Shape, Path} from 'ReactNativeART'
+import {Surface, Group, Shape, Path} from 'ReactNativeART'
 
 const styles = StyleSheet.create({
   container: {
@@ -97,21 +97,31 @@ const Snake = React.createClass({
     this.setNewPoint()
   },
   render: function() {
-    const lastLine = this.state.points[this.state.points.length - 1]
-    const smoothLine = getSmoothLine(lastLine)
+    // const lastLine = this.state.points[this.state.points.length - 1]
+    // const smoothLine = getSmoothLine(lastLine)
+    const smoothLines = this.state.points.map(line => getSmoothLine(line))
 
     return (
       <View style={styles.container} {...this.panResponder.panHandlers}>
         <Surface width={width} height={height}>
           {
-            smoothLine.map((points, i, array) =>
-              <Shape
-                key={i}
-                d={getLineSegmentPath(points)}
-                opacity={getAlpha(i, array.length)}
-                stroke="#000"
-                strokeWidth={4}
-              />)
+            smoothLines.map((line, lineIndex) => {
+              return (
+                <Group key={lineIndex}>
+                  {
+                    line.map((points, i, array) =>
+                      <Shape
+                        key={lineIndex + ':' + i}
+                        d={getLineSegmentPath(points)}
+                        opacity={getAlpha(i, array.length)}
+                        stroke="#000"
+                        strokeWidth={4}
+                      />
+                    )
+                  }
+                </Group>
+              )
+            })
           }
         </Surface>
       </View>
