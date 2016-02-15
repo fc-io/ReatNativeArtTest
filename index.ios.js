@@ -10,40 +10,43 @@ const styles = StyleSheet.create({
 
 const {width, height} = Dimensions.get('window')
 
-let lastPoint = {x: undefined, y: undefined}
-let isPressing = false
-let pollTime = 0
+let lastPoint = {x: undefined, y: undefined, timestamp: undefined}
 let pollId
 
+const setLastPoint = ({pageX, pageY, timestamp}, dateTime) => {
+  lastPoint = {x: pageX, y: pageY, timestamp, date: dateTime}
+}
+
 const getAlpha = (i, numberOfPoints) => {
-  const threshold =  (numberOfPoints / (numberOfPoints * (numberOfPoints - i)))
+  const threshold = (numberOfPoints / (numberOfPoints * (numberOfPoints - i)))
 
   return threshold < 0.09 ? 0 : 1
 }
 
-const getMidPoint = (p1, p2) => ({
-  x: (p1.x + p2.x) * 0.5,
-  y: (p1.y + p2.y) * 0.5
-})
+const getMidPoint = (p1, p2) => (
+  {x: (p1.x + p2.x) * 0.5, y: (p1.y + p2.y) * 0.5}
+)
 
-const getSmoothLine = line => line.reduce((acc, cV, i, line) => {
-  const previousPoint2 = line[i]
-  const previousPoint1 = line[i + 1]
-  const currentPoint = line[i + 2]
+const getSmoothLine = line => (
+  line.reduce((acc, cV, i, line) => {
+    const previousPoint2 = line[i]
+    const previousPoint1 = line[i + 1]
+    const currentPoint = line[i + 2]
 
-  if (!currentPoint) {
-    return acc
-  }
+    if (!currentPoint) {
+      return acc
+    }
 
-  const mid1 = getMidPoint(previousPoint1, previousPoint2)
-  const mid2 = getMidPoint(currentPoint, previousPoint1)
+    const mid1 = getMidPoint(previousPoint1, previousPoint2)
+    const mid2 = getMidPoint(currentPoint, previousPoint1)
 
-  return acc.concat({previousPoint1, mid1, mid2})
-}, [])
+    return acc.concat({previousPoint1, mid1, mid2})
+  }, [])
+)
 
-const getLineSegmentPath = ({previousPoint1, mid1, mid2}) =>
+const getLineSegmentPath = ({previousPoint1, mid1, mid2}) => (
   Path().moveTo(mid1.x, mid1.y).curveTo(previousPoint1.x, previousPoint1.y, mid2.x, mid2.y)
-
+)
 
 const Snake = React.createClass({
   getInitialState: function() {
@@ -61,41 +64,37 @@ const Snake = React.createClass({
       onPanResponderTerminate: this.release
     })
   },
-  grant: function(e, {x0, y0}) {
-    isPressing = true
-    lastPoint = {x: x0, y: y0}
-    pollTime = 0
-    this.setState(state => ({
-      points: state.points.concat([[]])
-    }))
+  grant: function({nativeEvent}, {x0, y0}) {
+    setLastPoint(nativeEvent, Date.now())
+    this.setState(state => ({points: state.points.concat([[]])}))
+    this.setNewPoint()
     this.poll()
   },
   poll: function() {
     pollId = setTimeout(() => {
-      this.setState(state => {
-        var lineToUpdate = state.points.pop()
-        var newLine = lineToUpdate.concat({x: lastPoint.x, y: lastPoint.y})
-
-        if (pollTime % (8 * 2) === 0) {
-          newLine.shift()
-        }
-        var points = state.points.concat([newLine])
-
-        pollTime += 8
-
-        return {
-          points
-        }
-      })
+      this.setNewPoint()
       this.poll()
     }, 8)
   },
-  move: function ({nativeEvent}) {
-    lastPoint = {x: nativeEvent.pageX, y: nativeEvent.pageY}
+  setNewPoint: function () {
+    this.setState(state => {
+      var lineToUpdate = state.points.pop()
+      var newLine = lineToUpdate.concat({
+        x: lastPoint.x,
+        y: lastPoint.y,
+        timestamp: lastPoint.timestamp
+      })
+      var points = state.points.concat([newLine])
+      return {points}
+    })
   },
-  release: function() {
-    isPressing = false
+  move: function ({nativeEvent}) {
+    setLastPoint(nativeEvent, Date.now())
+  },
+  release: function ({nativeEvent}) {
     clearTimeout(pollId)
+    setLastPoint(nativeEvent, Date.now())
+    this.setNewPoint()
   },
   render: function() {
     const lastLine = this.state.points[this.state.points.length - 1]
@@ -109,7 +108,6 @@ const Snake = React.createClass({
               <Shape
                 key={i}
                 d={getLineSegmentPath(points)}
-                points={points}
                 opacity={getAlpha(i, array.length)}
                 stroke="#000"
                 strokeWidth={4}
