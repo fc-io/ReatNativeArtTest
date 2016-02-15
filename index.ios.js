@@ -14,13 +14,17 @@ let lastPoint = {x: undefined, y: undefined, timestamp: undefined}
 let pollId
 
 const setLastPoint = ({pageX, pageY, timestamp}, dateTime) => {
-  lastPoint = {x: pageX, y: pageY, timestamp, date: dateTime}
+  console.log('setLastPoint', timestamp)
+  lastPoint = {x: pageX, y: pageY, timestamp, dateTime: dateTime}
 }
 
-const getAlpha = (i, numberOfPoints) => {
-  const threshold = (numberOfPoints / (numberOfPoints * (numberOfPoints - i)))
-
-  return threshold < 0.09 ? 0 : 1
+const getAlpha = (i, points, dateNow) => {
+  const numberOfPoints = points.length
+  const firstDateTime = points[0].previousPoint1.dateTime
+  const firstTimestamp = points[0].previousPoint1.timestamp
+  const currentTimestamp = points[i].previousPoint1.timestamp
+  const timeThreshold =  dateNow - firstDateTime > 300 + currentTimestamp - firstTimestamp
+  return timeThreshold ? 0 : 1
 }
 
 const getMidPoint = (p1, p2) => (
@@ -39,7 +43,6 @@ const getSmoothLine = line => (
 
     const mid1 = getMidPoint(previousPoint1, previousPoint2)
     const mid2 = getMidPoint(currentPoint, previousPoint1)
-
     return acc.concat({previousPoint1, mid1, mid2})
   }, [])
 )
@@ -64,9 +67,9 @@ const Snake = React.createClass({
       onPanResponderTerminate: this.release
     })
   },
-  grant: function({nativeEvent}, {x0, y0}) {
-    setLastPoint(nativeEvent, Date.now())
+  grant: function({nativeEvent}) {
     this.setState(state => ({points: state.points.concat([[]])}))
+    setLastPoint(nativeEvent, Date.now())
     this.setNewPoint()
     this.poll()
   },
@@ -74,7 +77,7 @@ const Snake = React.createClass({
     pollId = setTimeout(() => {
       this.setNewPoint()
       this.poll()
-    }, 8)
+    }, 16)
   },
   setNewPoint: function () {
     this.setState(state => {
@@ -82,7 +85,8 @@ const Snake = React.createClass({
       var newLine = lineToUpdate.concat({
         x: lastPoint.x,
         y: lastPoint.y,
-        timestamp: lastPoint.timestamp
+        timestamp: lastPoint.timestamp,
+        dateTime: lastPoint.dateTime
       })
       var points = state.points.concat([newLine])
       return {points}
@@ -97,9 +101,8 @@ const Snake = React.createClass({
     this.setNewPoint()
   },
   render: function() {
-    // const lastLine = this.state.points[this.state.points.length - 1]
-    // const smoothLine = getSmoothLine(lastLine)
     const smoothLines = this.state.points.map(line => getSmoothLine(line))
+    const dateNow = Date.now()
 
     return (
       <View style={styles.container} {...this.panResponder.panHandlers}>
@@ -113,7 +116,7 @@ const Snake = React.createClass({
                       <Shape
                         key={lineIndex + ':' + i}
                         d={getLineSegmentPath(points)}
-                        opacity={getAlpha(i, array.length)}
+                        opacity={getAlpha(i, array, dateNow)}
                         stroke="#000"
                         strokeWidth={4}
                       />
